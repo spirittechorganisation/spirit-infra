@@ -1,0 +1,10 @@
+[Unit]
+Description=Sauvegarde des bases PostgreSQL (postgres-shared)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/infra/scripts/backup-postgres.sh
+Nice=10
+IOSchedulingClass=idle
