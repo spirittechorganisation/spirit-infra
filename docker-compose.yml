@@ -33,7 +33,8 @@ services:
     restart: unless-stopped
     command:
       - --api.dashboard=true
-      - --api.insecure=true
+      # API Traefik non exposée : le tableau de bord passe uniquement par
+      # https://traefik.INFRA_DOMAIN, protégé par admin-auth (SE03, 18/11/2026)
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
       - --providers.docker.network=proxy
@@ -48,7 +49,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./acme.json:/acme.json
