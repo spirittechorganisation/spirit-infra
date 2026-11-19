@@ -6,8 +6,8 @@ version: 2
 # déploie rien). Elles arrivent sur `main` — donc sur le VPS — par la PR develop → main.
 # Les correctifs de sécurité visent eux aussi la branche par défaut, donc `develop`.
 #
-# Images en « latest » (pgadmin, minio, dozzle) : Dependabot ne peut pas les suivre
-# tant qu'elles n'ont pas de version fixe dans docker-compose.yml (tâche à part).
+# Images épinglées par « étiquette@digest » dans docker-compose.yml : Dependabot met
+# à jour l'étiquette et le digest ensemble. MinIO est exclu (image retirée de Docker Hub).
 
 updates:
   # ── Services (docker-compose.yml) ──────────────────────────────────────────
@@ -36,6 +36,9 @@ updates:
       # Traefik : une version majeure change la configuration (labels, options)
       - dependency-name: "traefik"
         update-types: ["version-update:semver-major"]
+      # MinIO : le dépôt minio/minio n'existe plus sur Docker Hub (19/11/2026) ;
+      # l'image est figée sur le VPS (pull_policy: never). Remplacement à prévoir.
+      - dependency-name: "minio/minio"
 
   # ── GitHub Actions ─────────────────────────────────────────────────────────
   - package-ecosystem: "github-actions"

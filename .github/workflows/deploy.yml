@@ -53,10 +53,10 @@ jobs:
             # --ff-only : refuse de créer un merge sur le VPS si l'historique a divergé
             git pull --ff-only origin main
 
-            # Pas de « docker compose pull » ici, volontairement : plusieurs images sont
-            # en « latest » (pgadmin, minio, dozzle) ou flottantes (traefik:v3). Les tirer
-            # à chaque déploiement changerait leur version sans prévenir. À ajouter quand
-            # leurs versions seront fixées dans docker-compose.yml.
+            # Pas de « docker compose pull » : les images sont épinglées par digest
+            # (étiquette@sha256) dans docker-compose.yml. Quand un digest change (PR
+            # Dependabot mergée), « up -d » télécharge seul l'image manquante. MinIO est
+            # en pull_policy: never (image retirée de Docker Hub, conservée sur le VPS).
 
             echo "=== Docker Compose up ==="
             docker compose --env-file .env up -d --remove-orphans
