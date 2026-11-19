@@ -207,7 +207,7 @@ services:
 
   # ─── Dozzle – Logs temps réel de tous les conteneurs ───────────────
   dozzle:
-    image: amir20/dozzle:v10.6.5@sha256:fa12525776bf665147d82bf031ff262ee89a0a12454122558a353ec38ada4aaf
+    image: amir20/dozzle:v11.4.3@sha256:244f218c876d6ed766277e71a537f34bfb2c01829e1927737e3673a8327deeb8
     container_name: dozzle
     restart: unless-stopped
     volumes:
