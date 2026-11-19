@@ -1,0 +1,61 @@
+version: 2
+
+# Mises à jour automatiques de l'infra partagée (Traefik, PostgreSQL, Keycloak, outils).
+#
+# Flux : toutes les PR de Dependabot visent `develop` (branche par défaut, qui ne
+# déploie rien). Elles arrivent sur `main` — donc sur le VPS — par la PR develop → main.
+# Les correctifs de sécurité visent eux aussi la branche par défaut, donc `develop`.
+#
+# Images en « latest » (pgadmin, minio, dozzle) : Dependabot ne peut pas les suivre
+# tant qu'elles n'ont pas de version fixe dans docker-compose.yml (tâche à part).
+
+updates:
+  # ── Services (docker-compose.yml) ──────────────────────────────────────────
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    target-branch: "develop"
+    schedule:
+      interval: "monthly"
+      time: "08:00"
+      timezone: "Africa/Dakar"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependances"
+      - "securite"
+    ignore:
+      # PostgreSQL : une version majeure impose une migration des données
+      # (pg_dump / pg_restore ou pg_upgrade), à préparer avec une sauvegarde
+      - dependency-name: "postgres"
+        update-types: ["version-update:semver-major"]
+      # Keycloak : toutes les mises à jour sont ignorées. Une montée migre sa base
+      # sans retour possible ; elle se fait en même temps que le client Java du
+      # backend (org.keycloak:*) et ses fichiers compose, dans une tâche dédiée,
+      # avec sauvegarde. Les deux noms couvrent l'image avec et sans le registre.
+      - dependency-name: "quay.io/keycloak/keycloak"
+      - dependency-name: "keycloak/keycloak"
+      # Traefik : une version majeure change la configuration (labels, options)
+      - dependency-name: "traefik"
+        update-types: ["version-update:semver-major"]
+
+  # ── GitHub Actions ─────────────────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "develop"
+    schedule:
+      interval: "monthly"
+      time: "08:00"
+      timezone: "Africa/Dakar"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependances"
+      - "securite"
+    groups:
+      actions-mineures:
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # appleboy/ssh-action : la règle de l'organisation n'autorise qu'un SHA précis.
+      # Toute PR automatique échouerait au démarrage. Montée manuelle : mettre à jour
+      # la règle de l'organisation, puis le SHA dans deploy.yml et ci.yml (« Sondes »).
+      - dependency-name: "appleboy/ssh-action"
