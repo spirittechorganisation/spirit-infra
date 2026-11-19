@@ -9,12 +9,18 @@
 #
 # Aucune donnée n'est lue ni écrite en dehors de BACKUP_ROOT.
 # Aucun mot de passe : on passe par le socket local du conteneur.
+#
+# Copie hors du VPS : le groupe BACKUP_GROUP (créé par
+# scripts/installer-lecteur-sauvegardes.sh) a la lecture seule sur les
+# sauvegardes ; le fichier SAUVEGARDE_TERMINEE marque un dossier complet.
 # ===================================================================
 set -euo pipefail
-umask 077
+# Propriétaire : lecture/écriture ; groupe : lecture seule ; autres : rien
+umask 027
 
 CONTAINER="${CONTAINER:-postgres-shared}"
 BACKUP_ROOT="${BACKUP_ROOT:-/opt/backups/postgres}"
+BACKUP_GROUP="${BACKUP_GROUP:-backup-readers}"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
 DAY="$(date +%F)"
 TARGET="$BACKUP_ROOT/$DAY"
@@ -46,6 +52,14 @@ done
 
 docker exec "$CONTAINER" sh -c 'pg_dumpall -U "$POSTGRES_USER" --globals-only' > "$TARGET/globals.sql"
 log "OK rôles et droits (globals.sql)"
+
+# Marqueur de fin : la copie hors du VPS ne récupère que les dossiers complets
+date -Iseconds > "$TARGET/SAUVEGARDE_TERMINEE"
+
+# Lecture seule pour le groupe de copie hors site, s'il existe
+if getent group "$BACKUP_GROUP" > /dev/null; then
+  chgrp -R "$BACKUP_GROUP" "$TARGET"
+fi
 
 # Rotation : supprime les dossiers de plus de RETENTION_DAYS jours
 find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -mtime +"$RETENTION_DAYS" -print -exec rm -rf {} +

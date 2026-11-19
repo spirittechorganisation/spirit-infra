@@ -4,3 +4,6 @@
 *.yml     text eol=lf
 *.service text eol=lf
 *.timer   text eol=lf
+
+# Scripts PowerShell (poste Windows de sauvegarde) : fins de ligne Windows
+*.ps1     text eol=crlf
