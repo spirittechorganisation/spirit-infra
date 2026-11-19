@@ -133,7 +133,7 @@ services:
 
   # ─── pgAdmin 4 – Gestion de toutes les bases ───────────────────────
   pgadmin:
-    image: dpage/pgadmin4:9.15.0@sha256:cefc4cc6b7d9d71a9e81e76fb9d7e14038ab5661b539a190eea1b63fa612589a
+    image: dpage/pgadmin4:9.19.0@sha256:3591b3d02910dcd817dec6fcaa681c278ba6966945283dd0ea0042731c330c83
     container_name: pgadmin
     restart: unless-stopped
     environment:
