@@ -28,7 +28,7 @@ services:
 
   # ─── Traefik v3 – Reverse proxy + SSL Let's Encrypt ───────────────
   traefik:
-    image: traefik:v3
+    image: traefik:v3.7.4@sha256:fcdef599e6259359833dd2e1d49f9e964f66825d69bd3dd468f51102ce013d03
     container_name: traefik
     restart: unless-stopped
     command:
@@ -66,7 +66,7 @@ services:
   # ─── PostgreSQL 17 – Instance unique, toutes les bases ─────────────
   # Pas de port exposé — accès via infra-internal uniquement
   postgres-shared:
-    image: postgres:17-alpine
+    image: postgres:17-alpine@sha256:979c4379dd698aba0b890599a6104e082035f98ef31d9b9291ec22f2b13059ca
     container_name: postgres-shared
     restart: unless-stopped
     environment:
@@ -89,7 +89,7 @@ services:
   # ─── Keycloak 26 – IAM partagé, un realm par projet ────────────────
   # Un realm par projet : dinthialma, pharmagest
   keycloak:
-    image: quay.io/keycloak/keycloak:26.1.5
+    image: quay.io/keycloak/keycloak:26.1.5@sha256:be6a86215213145bfb4fb3e2b3ab982a806d00262655abdcf3ffa6a38d241c7c
     container_name: keycloak
     restart: unless-stopped
     command: start
@@ -133,7 +133,7 @@ services:
 
   # ─── pgAdmin 4 – Gestion de toutes les bases ───────────────────────
   pgadmin:
-    image: dpage/pgadmin4:latest
+    image: dpage/pgadmin4:9.15.0@sha256:cefc4cc6b7d9d71a9e81e76fb9d7e14038ab5661b539a190eea1b63fa612589a
     container_name: pgadmin
     restart: unless-stopped
     environment:
@@ -160,8 +160,16 @@ services:
   # Console  : https://minio.INFRA_DOMAIN
   # API S3   : https://storage.INFRA_DOMAIN  ← URL que les backends utilisent
   # Interne  : http://minio:9000             ← depuis les conteneurs app
+  #
+  # ⚠ Image figée : le dépôt minio/minio n'est plus disponible sur Docker Hub
+  # (constaté le 19/11/2026). L'image ci-dessous n'existe plus que sur le VPS :
+  # ne pas la supprimer (pas de « docker image prune -a »). pull_policy: never
+  # empêche toute tentative de téléchargement ; si l'image venait à manquer, le
+  # démarrage échoue clairement au lieu de tirer une autre version.
+  # À remplacer (autre source d'image ou autre stockage S3) dans une tâche dédiée.
   minio:
-    image: minio/minio:latest
+    image: minio/minio:latest@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    pull_policy: never
     container_name: minio
     restart: unless-stopped
     command: server /data --console-address :9001
@@ -199,7 +207,7 @@ services:
 
   # ─── Dozzle – Logs temps réel de tous les conteneurs ───────────────
   dozzle:
-    image: amir20/dozzle:latest
+    image: amir20/dozzle:v10.6.5@sha256:fa12525776bf665147d82bf031ff262ee89a0a12454122558a353ec38ada4aaf
     container_name: dozzle
     restart: unless-stopped
     volumes:
