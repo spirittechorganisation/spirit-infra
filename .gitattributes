@@ -1,0 +1,6 @@
+# Les scripts et fichiers de configuration tournent sur le VPS (Linux) :
+# fins de ligne Unix imposées, quel que soit le poste qui commite.
+*.sh      text eol=lf
+*.yml     text eol=lf
+*.service text eol=lf
+*.timer   text eol=lf
