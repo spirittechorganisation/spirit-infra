@@ -56,8 +56,17 @@ try {
   # 1. Dossiers disponibles sur le VPS (le chroot montre /opt/backups comme /)
   # (pas de « 2>&1 » : sous PowerShell 5.1 avec ErrorActionPreference=Stop, rediriger
   # stderr d'un programme externe lève une exception même en cas de succès)
-  $listing = 'ls -1 /postgres' | & sftp.exe -q @sshOptions -b - $cible
-  if ($LASTEXITCODE -ne 0) { throw "Connexion SFTP impossible (code $LASTEXITCODE), voir le message ci-dessus" }
+  # Commandes passées par un fichier ASCII et non par un pipe : sous PowerShell 5.1, si
+  # la console est en UTF-8 (option Windows « UTF-8 bêta »), le pipe vers un programme
+  # externe ajoute un BOM devant la commande et sftp répond « Invalid command ».
+  $lot = [System.IO.Path]::GetTempFileName()
+  try {
+    [System.IO.File]::WriteAllText($lot, "ls -1 /postgres`n", [System.Text.Encoding]::ASCII)
+    $listing = & sftp.exe -q @sshOptions -b $lot $cible
+    $codeSftp = $LASTEXITCODE
+  }
+  finally { Remove-Item -Force $lot -ErrorAction SilentlyContinue }
+  if ($codeSftp -ne 0) { throw "Connexion SFTP impossible (code $codeSftp), voir le message ci-dessus" }
   $distants = $listing | ForEach-Object { ($_ -split '/')[-1].Trim() } |
     Where-Object { $_ -match $formatJour } | Sort-Object -Unique
 
