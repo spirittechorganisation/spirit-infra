@@ -151,3 +151,32 @@ docker compose restart traefik
   Si vide ou corrompu, supprimer et recréer pour forcer la ré-émission des certificats.
 - **Scaling** : un seul container Keycloak (mode standalone). Pour le clustering,
   ajouter `KC_CACHE=ispn` et plusieurs replicas.
+
+## Sauvegardes hors du VPS
+
+Les sauvegardes quotidiennes (`scripts/backup-postgres.sh`, 02:00) restent 14 jours sur
+le VPS. Un poste Windows vient chercher une copie chaque jour : **le poste se connecte au
+VPS, jamais l'inverse**.
+
+### Côté VPS (une seule fois)
+```bash
+sudo /opt/infra/scripts/installer-lecteur-sauvegardes.sh "ssh-ed25519 AAAA... sauvegarde-poste"
+```
+Crée l'utilisateur `backup-reader` : clé dédiée uniquement, SFTP en lecture seule,
+enfermé dans `/opt/backups` (il ne voit que `/postgres`), sans shell ni tunnel.
+Les sauvegardes deviennent lisibles par le groupe `backup-readers` ; chaque dossier
+complet contient le marqueur `SAUVEGARDE_TERMINEE`.
+
+### Côté poste Windows
+```powershell
+# 1. Clé dédiée (sans phrase de passe : utilisée par une tâche planifiée)
+ssh-keygen -t ed25519 -N '""' -C sauvegarde-poste -f $HOME\.ssh\dinthialma_backup
+# 2. Première connexion manuelle pour accepter l'empreinte du VPS (vérifier l'empreinte)
+sftp -i $HOME\.ssh\dinthialma_backup backup-reader@<hôte>
+# 3. Récupération (à planifier chaque jour, voir ci-dessous)
+.\scripts\windows\recuperer-sauvegardes.ps1 -Hote <hôte>
+```
+Destination par défaut : `D:\Sauvegardes\dinthialma\postgres` (30 jours conservés),
+journal dans `D:\Sauvegardes\dinthialma\journaux`. Code de sortie 2 si la copie la plus
+récente a plus de 2 jours. Les sauvegardes contiennent des données personnelles :
+disque chiffré (BitLocker), jamais dans un dossier synchronisé avec un cloud.
