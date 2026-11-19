@@ -173,10 +173,19 @@ complet contient le marqueur `SAUVEGARDE_TERMINEE`.
 ssh-keygen -t ed25519 -N '""' -C sauvegarde-poste -f $HOME\.ssh\dinthialma_backup
 # 2. Première connexion manuelle pour accepter l'empreinte du VPS (vérifier l'empreinte)
 sftp -i $HOME\.ssh\dinthialma_backup backup-reader@<hôte>
-# 3. Récupération (à planifier chaque jour, voir ci-dessous)
+# 3. Récupération manuelle (premier essai)
 .\scripts\windows\recuperer-sauvegardes.ps1 -Hote <hôte>
+# 4. Récupération automatique : tâche planifiée (sans droits administrateur)
+.\scripts\windows\planifier-recuperation.ps1 -Hote <hôte>
 ```
 Destination par défaut : `D:\Sauvegardes\dinthialma\postgres` (30 jours conservés),
 journal dans `D:\Sauvegardes\dinthialma\journaux`. Code de sortie 2 si la copie la plus
 récente a plus de 2 jours. Les sauvegardes contiennent des données personnelles :
 disque chiffré (BitLocker), jamais dans un dossier synchronisé avec un cloud.
+
+La tâche planifiée tourne chaque jour à 08:00, à l'ouverture de session (après
+5 minutes) et dès que possible après un démarrage manqué. **Le PC doit être allumé,
+la session ouverte et le réseau disponible** ; les jours manqués sont rattrapés tant
+qu'ils sont encore sur le VPS (14 jours). Résultat dans la colonne « Résultat de la
+dernière exécution » du Planificateur de tâches : `0` OK, `0x1` erreur, `0x2` copie
+trop ancienne.
