@@ -5,3 +5,6 @@ acme.json
 # OS
 .DS_Store
 Thumbs.db
+
+# IDE
+.idea/

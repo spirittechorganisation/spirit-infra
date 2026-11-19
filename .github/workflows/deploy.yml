@@ -1,11 +1,15 @@
 # ===================================================================
 # Spirit Tech – Infra partagée
 # Déploiement automatique sur le VPS à chaque push sur main
+# (flux : sous-branche → develop → main ; develop ne déploie rien)
 # ===================================================================
 # Secrets GitHub requis (Settings → Secrets and variables → Actions) :
 #   VPS_HOST             → 155.117.40.193
 #   VPS_USER             → administrator
 #   VPS_SSH_PRIVATE_KEY  → contenu de ~/.ssh/deploy_key
+#
+# Actions épinglées par SHA : la règle de l'organisation n'autorise que des SHA
+# précis pour appleboy/ssh-action. Garder le MÊME SHA dans ci.yml (job « Sondes »).
 # ===================================================================
 
 name: Deploy Infra
@@ -13,32 +17,64 @@ name: Deploy Infra
 on:
   push:
     branches: [main]
-  workflow_dispatch:    # déclenchement manuel depuis GitHub UI
+  workflow_dispatch:    # déclenchement manuel depuis GitHub UI (branche main uniquement)
+
+permissions:
+  contents: read
+
+# Jamais deux déploiements en même temps sur le VPS
+concurrency:
+  group: deploy-infra
+  cancel-in-progress: false
 
 jobs:
   deploy:
     name: Deploy to VPS
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Le script déploie toujours main : un lancement manuel depuis une autre branche
+    # serait trompeur, on l'ignore.
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          command_timeout: 10m
           script: |
             set -e
 
             cd /opt/infra
 
             echo "=== Git pull ==="
-            git pull origin main
+            # --ff-only : refuse de créer un merge sur le VPS si l'historique a divergé
+            git pull --ff-only origin main
+
+            # Pas de « docker compose pull » ici, volontairement : plusieurs images sont
+            # en « latest » (pgadmin, minio, dozzle) ou flottantes (traefik:v3). Les tirer
+            # à chaque déploiement changerait leur version sans prévenir. À ajouter quand
+            # leurs versions seront fixées dans docker-compose.yml.
 
             echo "=== Docker Compose up ==="
             docker compose --env-file .env up -d --remove-orphans
 
-            echo "=== État des services ==="
-            docker compose ps
+            echo "=== Vérification des services (max 3 min) ==="
+            # Chaque conteneur doit être « running » et, s'il a un healthcheck, « healthy ».
+            for i in $(seq 1 36); do
+              ETAT=$(docker compose --env-file .env ps --all --format '{{.Name}} {{.State}} {{.Health}}')
+              NON_PRETS=$(echo "$ETAT" | awk '$2!="running" || ($3!="" && $3!="healthy")')
+              if [ -n "$ETAT" ] && [ -z "$NON_PRETS" ]; then
+                echo "$ETAT"
+                echo "=== Déploiement infra terminé : tous les services sont prêts ==="
+                exit 0
+              fi
+              sleep 5
+            done
 
-            echo "=== Déploiement infra terminé ==="
+            echo "Services non prêts après 3 minutes :"
+            echo "${NON_PRETS:-aucun conteneur trouvé}"
+            docker compose --env-file .env ps --all
+            exit 1

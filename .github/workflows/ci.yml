@@ -1,0 +1,65 @@
+# Intégration continue de l'infra : vérifie chaque PR avant le merge.
+#
+# Flux : sous-branche → develop → main. main déploie directement sur le VPS
+# (deploy.yml) : rien ne doit y arriver sans avoir été vérifié ici.
+# Ce workflow ne se connecte jamais au VPS et n'utilise aucun secret.
+
+name: CI – Infra
+
+on:
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compose:
+    name: docker-compose.yml valide
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # Valeurs d'exemple de .env.example : seule la syntaxe et la structure sont vérifiées
+      - name: Validation de la configuration
+        run: docker compose --env-file .env.example config --quiet
+
+  scripts:
+    name: Scripts shell (shellcheck)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # Les scripts tournent sur le VPS (Linux) : des fins de ligne Windows les casseraient
+      - name: Fins de ligne Unix
+        run: |
+          if grep -rlI $'\r' --include='*.sh' .; then
+            echo "Fichiers .sh avec fins de ligne Windows (CRLF) ci-dessus : à convertir en LF."
+            exit 1
+          fi
+
+      # Bloquant à partir du niveau « warning » ; les remarques « info » restent affichées
+      - name: shellcheck
+        run: shellcheck --severity=warning deploy.sh postgres/*.sh scripts/*.sh
+
+  sondes-deploiement:
+    name: Sondes – action de déploiement
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Non exécutée (secrets nécessaires) mais téléchargée au démarrage du job :
+      # une action refusée par la règle de l'organisation fait échouer la PR,
+      # et non le déploiement sur main. Garder le MÊME SHA que deploy.yml.
+      - name: Sonde – déploiement SSH (non exécutée)
+        if: ${{ false }}
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
+
+      - name: Action de déploiement autorisée
+        run: echo "appleboy/ssh-action est autorisée et résolue."
