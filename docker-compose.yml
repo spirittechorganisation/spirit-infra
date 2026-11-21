@@ -104,20 +104,30 @@ services:
       KC_HTTP_PORT: 8080
       KC_HTTP_ENABLED: "true"
       KC_HOSTNAME: https://auth.${INFRA_DOMAIN}
-      KC_HOSTNAME_ADMIN: https://auth.${INFRA_DOMAIN}
+      # Console d'administration servie uniquement sur le VPS (127.0.0.1:8081),
+      # joignable par tunnel SSH : ssh -L 8081:127.0.0.1:8081 dinthialma
+      # puis http://localhost:8081/admin/ (SE06, 21/11/2026)
+      KC_HOSTNAME_ADMIN: http://localhost:8081
       KC_HOSTNAME_STRICT: "false"
       KC_PROXY_HEADERS: xforwarded
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
       KC_LOG_LEVEL: info
       JAVA_OPTS_APPEND: "-Xms256m -Xmx512m"
+    # Port publié sur la boucle locale du VPS seulement (jamais sur Internet)
+    ports:
+      - "127.0.0.1:8081:8080"
     networks:
       - proxy
       - infra-internal
     labels:
       - traefik.enable=true
       - traefik.docker.network=proxy
-      - traefik.http.routers.keycloak.rule=Host(`auth.${INFRA_DOMAIN}`)
+      # Public : uniquement ce dont les utilisateurs et les applis ont besoin
+      # (connexion, jetons, clés publiques, ressources des pages de connexion).
+      # Ni /admin ni le realm master ne sont exposés (SE06). Les backends appellent
+      # l'API d'administration par le réseau interne (http://keycloak:8080).
+      - traefik.http.routers.keycloak.rule=Host(`auth.${INFRA_DOMAIN}`) && (PathPrefix(`/realms/`) || PathPrefix(`/resources/`)) && !PathPrefix(`/realms/master/`)
       - traefik.http.routers.keycloak.entrypoints=websecure
       - traefik.http.routers.keycloak.tls.certresolver=letsencrypt
       - traefik.http.services.keycloak.loadbalancer.server.port=8080
@@ -142,22 +152,21 @@ services:
       PGADMIN_CONFIG_SERVER_MODE: "True"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
+    # Plus d'adresse publique (IN14, 21/11/2026) : port publié sur la boucle locale
+    # du VPS seulement, joignable par tunnel SSH :
+    #   ssh -L 5050:127.0.0.1:5050 dinthialma   puis   http://localhost:5050
+    ports:
+      - "127.0.0.1:5050:80"
     networks:
-      - proxy
       - infra-internal
     labels:
-      - traefik.enable=true
-      - traefik.docker.network=proxy
-      - traefik.http.routers.pgadmin.rule=Host(`db.${INFRA_DOMAIN}`)
-      - traefik.http.routers.pgadmin.entrypoints=websecure
-      - traefik.http.routers.pgadmin.tls.certresolver=letsencrypt
-      - traefik.http.services.pgadmin.loadbalancer.server.port=80
+      - traefik.enable=false
     depends_on:
       postgres-shared:
         condition: service_healthy
 
   # ─── MinIO – Object storage S3-compatible ──────────────────────────
-  # Console  : https://minio.INFRA_DOMAIN
+  # Console  : tunnel SSH vers 127.0.0.1:9001 (plus d'adresse publique)
   # API S3   : https://storage.INFRA_DOMAIN  ← URL que les backends utilisent
   # Interne  : http://minio:9000             ← depuis les conteneurs app
   #
@@ -177,22 +186,21 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_SERVER_URL: https://storage.${INFRA_DOMAIN}
-      MINIO_BROWSER_REDIRECT_URL: https://minio.${INFRA_DOMAIN}
+      # Console servie uniquement par tunnel SSH (21/11/2026) :
+      #   ssh -L 9001:127.0.0.1:9001 dinthialma   puis   http://localhost:9001
+      MINIO_BROWSER_REDIRECT_URL: http://localhost:9001
     volumes:
       - minio_data:/data
+    # Console web : plus d'adresse publique, boucle locale du VPS seulement
+    ports:
+      - "127.0.0.1:9001:9001"
     networks:
       - proxy
       - infra-internal
     labels:
-      # Console web MinIO
       - traefik.enable=true
       - traefik.docker.network=proxy
-      - traefik.http.routers.minio-console.rule=Host(`minio.${INFRA_DOMAIN}`)
-      - traefik.http.routers.minio-console.entrypoints=websecure
-      - traefik.http.routers.minio-console.tls.certresolver=letsencrypt
-      - traefik.http.routers.minio-console.service=minio-console-svc
-      - traefik.http.services.minio-console-svc.loadbalancer.server.port=9001
-      # API S3 publique
+      # API S3 publique (protégée par les clés d'accès MinIO)
       - traefik.http.routers.minio-api.rule=Host(`storage.${INFRA_DOMAIN}`)
       - traefik.http.routers.minio-api.entrypoints=websecure
       - traefik.http.routers.minio-api.tls.certresolver=letsencrypt
