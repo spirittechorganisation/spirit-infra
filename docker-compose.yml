@@ -125,9 +125,10 @@ services:
       - traefik.docker.network=proxy
       # Public : uniquement ce dont les utilisateurs et les applis ont besoin
       # (connexion, jetons, clés publiques, ressources des pages de connexion).
-      # Ni /admin ni le realm master ne sont exposés (SE06). Les backends appellent
+      # /admin (console et API) n'est pas exposé (SE06) ; le realm master reste
+      # public car la console s'y connecte (protégé par 2FA + anti force brute, SE15/SE16). Les backends appellent
       # l'API d'administration par le réseau interne (http://keycloak:8080).
-      - traefik.http.routers.keycloak.rule=Host(`auth.${INFRA_DOMAIN}`) && (PathPrefix(`/realms/`) || PathPrefix(`/resources/`)) && !PathPrefix(`/realms/master/`)
+      - traefik.http.routers.keycloak.rule=Host(`auth.${INFRA_DOMAIN}`) && (PathPrefix(`/realms/`) || PathPrefix(`/resources/`))
       - traefik.http.routers.keycloak.entrypoints=websecure
       - traefik.http.routers.keycloak.tls.certresolver=letsencrypt
       - traefik.http.services.keycloak.loadbalancer.server.port=8080
