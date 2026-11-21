@@ -7,12 +7,18 @@ Un seul `docker compose up` démarre l'ensemble des services.
 
 | Service | URL | Description |
 |---|---|---|
-| Keycloak 26 | `https://auth.spirittechrevolution.com` | IAM — un realm par projet |
-| Traefik v3 | `https://traefik.spirittechrevolution.com` | Reverse proxy + SSL Let's Encrypt |
-| pgAdmin 4 | `https://db.spirittechrevolution.com` | Gestion des bases PostgreSQL |
-| MinIO console | `https://minio.spirittechrevolution.com` | Object storage S3 — interface web |
+| Keycloak 26 | `https://auth.spirittechrevolution.com` (seulement `/realms/…` hors master et `/resources/…`) | IAM — un realm par projet |
+| Console d'administration Keycloak | tunnel SSH : `ssh -L 8081:127.0.0.1:8081 dinthialma` puis `http://localhost:8081/admin/` | Plus d'adresse publique (SE06) |
+| Traefik v3 | `https://traefik.spirittechrevolution.com` (mot de passe `admin-auth`) | Reverse proxy + SSL Let's Encrypt |
+| pgAdmin 4 | tunnel SSH : `ssh -L 5050:127.0.0.1:5050 dinthialma` puis `http://localhost:5050` | Gestion des bases PostgreSQL ; plus d'adresse publique (IN14) |
+| MinIO console | tunnel SSH : `ssh -L 9001:127.0.0.1:9001 dinthialma` puis `http://localhost:9001` | Object storage S3 — interface web ; plus d'adresse publique |
 | MinIO API S3 | `https://storage.spirittechrevolution.com` | Endpoint S3 pour les backends |
-| Dozzle | `https://logs.spirittechrevolution.com` | Logs temps réel des containers |
+| Dozzle | `https://logs.spirittechrevolution.com` (mot de passe `admin-auth`) | Logs temps réel des containers |
+
+Les consoles d'administration (Keycloak, pgAdmin, MinIO) ne sont plus servies sur
+Internet depuis le 21/11/2026 : leurs ports sont publiés sur `127.0.0.1` du VPS
+uniquement, et on y accède par tunnel SSH avec la clé d'administration
+(un seul tunnel pour les trois : `ssh -L 8081:127.0.0.1:8081 -L 5050:127.0.0.1:5050 -L 9001:127.0.0.1:9001 dinthialma`).
 
 ## Prérequis
 
@@ -60,9 +66,7 @@ Internet
    │  HTTPS 443
    ▼
 Traefik (réseau: proxy)
-   ├── auth.spirittechrevolution.com  → keycloak:8080
-   ├── db.spirittechrevolution.com    → pgadmin:80
-   ├── minio.spirittechrevolution.com → minio:9001
+   ├── auth.spirittechrevolution.com  → keycloak:8080 (/realms/ hors master, /resources/)
    ├── storage.spirittechrevolution.com → minio:9000
    └── logs.spirittechrevolution.com → dozzle:8080
 
